@@ -12,6 +12,7 @@ const API_PORT = 36530
 const API_READY_TIMEOUT_MS = 12000
 const API_READY_POLL_INTERVAL_MS = 150
 const API_READY_SETTLE_DELAY_MS = 250
+const DEFAULT_UNBLOCK_SOURCE = 'pyncmd,bodian,kuwo,qq,migu,kugou'
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
@@ -79,10 +80,21 @@ async function waitForApiReachable(url, timeoutMs = API_READY_TIMEOUT_MS, interv
     throw lastError || new Error('ncm-api-unreachable')
 }
 
+function applyDefaultNcmApiEnv() {
+    // 仅在未显式配置时补默认值，保持外部环境仍可覆盖。
+    if (!process.env.ENABLE_GENERAL_UNBLOCK) {
+        process.env.ENABLE_GENERAL_UNBLOCK = 'true'
+    }
+    if (!process.env.UNBLOCK_SOURCE) {
+        process.env.UNBLOCK_SOURCE = DEFAULT_UNBLOCK_SOURCE
+    }
+}
+
 //启动网易云音乐API（可选）
 module.exports = async function startNeteaseMusicApi() {
     if (enhancedApi && enhancedApi.serveNcmApi) {
         try {
+            applyDefaultNcmApiEnv()
             const appExt = await enhancedApi.serveNcmApi({
                 checkVersion: false,
                 port: API_PORT,

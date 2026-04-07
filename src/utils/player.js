@@ -2,7 +2,7 @@ import pinia from '../store/pinia'
 import { Howl, Howler } from 'howler'
 import { formatDuration } from './time';
 import { noticeOpen } from './dialog'
-import { checkMusic, likeMusic, getLyric } from '../api/song'
+import { likeMusic, getLyric } from '../api/song'
 import { updatePlaylist } from '../api/playlist'
 import { getLikelist, getUserPlaylist } from '../api/user'
 import { useUserStore } from '../store/userStore'
@@ -833,36 +833,39 @@ export async function getSongUrl(id, index, autoplay, isLocal) {
         restorePlayerLyricAfterSongChange()
         return
     }
-    await checkMusic(id).then(result => {
-        if (result.success == true) {
-            const preferredQuality = getPreferredQuality(quality.value)
-            resolveTrackByQualityPreference(id, preferredQuality).then(trackInfo => {
-                if (!trackInfo || !trackInfo.url) {
-                    noticeOpen('当前歌曲无法播放', 2)
-                    clearInterval(musicProgress)
-                    playing.value = false
-                    currentMusic.value = null
-                    lyric.value = null
-                    playNext()
-                    return
-                }
-                play(trackInfo.url, autoplay)
-                setSongLevel(trackInfo.level, trackInfo)
-            })
-            getLyric(id).then(songLiric => {
-                if (songId.value !== targetSongId) return
-                lyric.value = songLiric
-                restorePlayerLyricAfterSongChange()
-            })
-        } else {
+    try {
+        const preferredQuality = getPreferredQuality(quality.value)
+        const trackInfo = await resolveTrackByQualityPreference(id, preferredQuality)
+        if (songId.value !== targetSongId) return
+
+        if (!trackInfo || !trackInfo.url) {
             noticeOpen('当前歌曲无法播放', 2)
             clearInterval(musicProgress)
             playing.value = false
             currentMusic.value = null
             lyric.value = null
             playNext()
+            return
         }
-    })
+
+        play(trackInfo.url, autoplay)
+        setSongLevel(trackInfo.level, trackInfo)
+
+        getLyric(id).then(songLiric => {
+            if (songId.value !== targetSongId) return
+            lyric.value = songLiric
+            restorePlayerLyricAfterSongChange()
+        })
+    } catch (error) {
+        console.error('解析歌曲播放地址失败:', error)
+        if (songId.value !== targetSongId) return
+        noticeOpen('当前歌曲无法播放', 2)
+        clearInterval(musicProgress)
+        playing.value = false
+        currentMusic.value = null
+        lyric.value = null
+        playNext()
+    }
 }
 
 export function startMusic() {

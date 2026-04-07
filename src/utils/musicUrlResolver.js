@@ -8,13 +8,30 @@ const IPHONE_PLAYBACK_REQUEST_PARAMS = Object.freeze({
     ua: 'NeteaseMusic 9.0.90/5038 (iPhone; iOS 16.2; zh_CN)',
     cookie: 'os=iPhone OS; appver=9.0.90; osver=16.2; channel=distribution',
 })
+const UNBLOCK_REQUEST_PARAMS = Object.freeze({
+    unblock: 'true',
+})
 
 function extractTrackInfo(songInfo) {
     return songInfo && songInfo.data && songInfo.data[0] ? songInfo.data[0] : null
 }
 
+function normalizeTrackInfo(trackInfo) {
+    if (!trackInfo) return null
+    const normalizedUrl = trackInfo.proxyUrl || trackInfo.url || ''
+    return {
+        ...trackInfo,
+        url: normalizedUrl,
+    }
+}
+
+function isTrialTrack(trackInfo) {
+    const freeTrialInfo = trackInfo?.freeTrialInfo
+    return freeTrialInfo !== null && freeTrialInfo !== undefined && freeTrialInfo !== 'null'
+}
+
 function isPlayableTrack(trackInfo) {
-    return !!(trackInfo && trackInfo.url)
+    return !!(trackInfo && trackInfo.url && !isTrialTrack(trackInfo))
 }
 
 function getTrackLevel(trackInfo) {
@@ -36,7 +53,14 @@ function getPlaybackRequestParams(preferredLevel) {
 
 async function requestTrack(id, level, requestParams = {}) {
     const songInfo = await getMusicUrl(id, level, requestParams)
-    return extractTrackInfo(songInfo)
+    return normalizeTrackInfo(extractTrackInfo(songInfo))
+}
+
+async function requestUnblockedTrack(id, level, requestParams = {}) {
+    return requestTrack(id, level, {
+        ...requestParams,
+        ...UNBLOCK_REQUEST_PARAMS,
+    })
 }
 
 export async function resolveTrackByQualityPreference(id, preferredLevel) {
@@ -44,7 +68,10 @@ export async function resolveTrackByQualityPreference(id, preferredLevel) {
     const playbackRequestParams = getPlaybackRequestParams(normalizedPreferredLevel)
     const preferredTrack = await requestTrack(id, normalizedPreferredLevel, playbackRequestParams)
 
-    if (!ADVANCED_QUALITY_LEVELS.has(normalizedPreferredLevel)) return preferredTrack
+    if (!ADVANCED_QUALITY_LEVELS.has(normalizedPreferredLevel)) {
+        if (isPlayableTrack(preferredTrack)) return preferredTrack
+        return requestUnblockedTrack(id, normalizedPreferredLevel, playbackRequestParams)
+    }
     if (isPlayableTrack(preferredTrack) && getTrackLevel(preferredTrack) === normalizedPreferredLevel) {
         return preferredTrack
     }
@@ -59,5 +86,6 @@ export async function resolveTrackByQualityPreference(id, preferredLevel) {
     }
 
     if (firstPlayableFallbackTrack) return firstPlayableFallbackTrack
-    return preferredTrack
+    if (isPlayableTrack(preferredTrack)) return preferredTrack
+    return requestUnblockedTrack(id, normalizedPreferredLevel, playbackRequestParams)
 }

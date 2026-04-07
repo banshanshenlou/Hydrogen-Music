@@ -3,6 +3,11 @@ import { useUserStore } from "../store/userStore"
 import { isLogin } from "./authority"
 
 const userStore = useUserStore(pinia)
+
+function hasVipAccess() {
+  return isLogin() && Number(userStore.user?.vipType ?? 0) !== 0
+}
+
 function checkSongPlayable(song, _privilege) {
   let privilege = _privilege;
   if (privilege === undefined) {
@@ -19,24 +24,21 @@ function checkSongPlayable(song, _privilege) {
   if (song.fee === 1 || privilege?.fee === 1) {
     status.vipOnly = true
 
-    // 修正VIP判断条件：vipType不等于0就是VIP
-    if (!(isLogin() && userStore.vipType !== 0)) {
-      status.playable = false
-      status.reason = '仅限 VIP 会员'
-    }
-    // 如果是VIP用户，确保VIP歌曲可以播放
-    else {
+    if (hasVipAccess()) {
       status.playable = true
+    } else {
+      status.playable = true
+      status.reason = '仅限 VIP 会员，播放时将尝试替代音源'
     }
   } else if (song.fee === 4 || privilege?.fee === 4) {
     status.playable = false
     status.reason = '付费专辑'
   } else if (song.noCopyrightRcmd !== null && song.noCopyrightRcmd !== undefined) {
-    status.playable = false
-    status.reason = '无版权'
+    status.playable = true
+    status.reason = '无版权，播放时将尝试替代音源'
   } else if (privilege?.st < 0 && isLogin()) {
-    status.playable = false
-    status.reason = '已下架'
+    status.playable = true
+    status.reason = '已下架，播放时将尝试替代音源'
   }
   return status
 }
