@@ -8,10 +8,6 @@ const IPHONE_PLAYBACK_REQUEST_PARAMS = Object.freeze({
     ua: 'NeteaseMusic 9.0.90/5038 (iPhone; iOS 16.2; zh_CN)',
     cookie: 'os=iPhone OS; appver=9.0.90; osver=16.2; channel=distribution',
 })
-const UNBLOCK_REQUEST_PARAMS = Object.freeze({
-    unblock: 'true',
-})
-
 function extractTrackInfo(songInfo) {
     return songInfo && songInfo.data && songInfo.data[0] ? songInfo.data[0] : null
 }
@@ -57,10 +53,8 @@ async function requestTrack(id, level, requestParams = {}) {
 }
 
 async function requestUnblockedTrack(id, level, requestParams = {}) {
-    return requestTrack(id, level, {
-        ...requestParams,
-        ...UNBLOCK_REQUEST_PARAMS,
-    })
+    // 统一复用服务端全局解灰，避免 /song/url/v1?unblock=true 命中依赖包里写死的源顺序。
+    return requestTrack(id, level, requestParams)
 }
 
 export async function resolveTrackByQualityPreference(id, preferredLevel) {

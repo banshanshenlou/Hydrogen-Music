@@ -12,7 +12,7 @@ const API_PORT = 36530
 const API_READY_TIMEOUT_MS = 12000
 const API_READY_POLL_INTERVAL_MS = 150
 const API_READY_SETTLE_DELAY_MS = 250
-const DEFAULT_UNBLOCK_SOURCE = 'pyncmd,bodian,kuwo,qq,migu,kugou'
+const DEFAULT_UNBLOCK_SOURCE = 'pyncmd,qq,bodian,migu,kugou,kuwo'
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
@@ -84,6 +84,10 @@ function applyDefaultNcmApiEnv() {
     // 仅在未显式配置时补默认值，保持外部环境仍可覆盖。
     if (!process.env.ENABLE_GENERAL_UNBLOCK) {
         process.env.ENABLE_GENERAL_UNBLOCK = 'true'
+    }
+    // 按优先级串行匹配，避免 Promise.any 抢到更快但不稳定的坏流。
+    if (!process.env.FOLLOW_SOURCE_ORDER) {
+        process.env.FOLLOW_SOURCE_ORDER = 'true'
     }
     if (!process.env.UNBLOCK_SOURCE) {
         process.env.UNBLOCK_SOURCE = DEFAULT_UNBLOCK_SOURCE
